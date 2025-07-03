@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DatabaseModule } from './database/database.module';
 import { TodoModule } from './todo/todo.module';
+import { User } from './todo/entities/user.entity';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -12,12 +13,12 @@ import { TodoModule } from './todo/todo.module';
       username: 'postgres',
       password: '1234',
       database: 'todo_db',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'], // [Todo]
+      entities: [__dirname + '/**/*.entity{.ts,.js}', User], // [Todo]
       synchronize: true,
       autoLoadEntities: true,
     }),
     TodoModule,
-    DatabaseModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

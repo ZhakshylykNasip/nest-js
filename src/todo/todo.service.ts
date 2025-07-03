@@ -10,39 +10,49 @@ import { CreateTodoDto } from './dto/create-todo.dto';
 export class TodoService {
   constructor(
     @InjectRepository(Todo)
-    private todoReposity: Repository<Todo>,
+    private todoRepository: Repository<Todo>,
   ) {}
 
-  async findAll(filters: TodoFiltersDto) {
-    return this.todoReposity.find({
+  // Получить все тудушки пользователя с фильтрами
+  async findAllByUser(userId: string, filters: TodoFiltersDto) {
+    return this.todoRepository.find({
       where: {
+        userId,
         title: filters.search ? ILike(`%${filters.search}%`) : undefined,
         isCompleted: filters.completed,
       },
     });
   }
 
-  async create(createTodoDto: CreateTodoDto) {
-    const todo = new Todo(createTodoDto);
-
-    return this.todoReposity.save(todo);
+  // Создать тудушку, привязанную к пользователю
+  async create(userId: string, createTodoDto: CreateTodoDto) {
+    const todo = new Todo({ ...createTodoDto, userId });
+    return this.todoRepository.save(todo);
   }
 
-  async update(id: string, updateTodoDto: UpdateTodoDto) {
-    const todo = await this.todoReposity.findOneBy({ id });
+  // Найти тудушку по id и userId (чтобы не получить чужую)
+  async findByIdForUser(id: string, userId: string) {
+    const todo = await this.todoRepository.findOneBy({ id, userId });
     if (!todo) {
       throw new NotFoundException(`Todo с id=${id} не найден`);
     }
-    todo.update(updateTodoDto);
-    return this.todoReposity.save(todo);
-  }
-
-  async delete(id: string) {
-    await this.todoReposity.delete(id);
-  }
-
-  async findById(id: string) {
-    const todo = this.todoReposity.findOneBy({ id });
     return todo;
+  }
+
+  // Обновить тудушку только если она принадлежит пользователю
+  async updateForUser(
+    id: string,
+    userId: string,
+    updateTodoDto: UpdateTodoDto,
+  ) {
+    const todo = await this.findByIdForUser(id, userId);
+    todo.update(updateTodoDto);
+    return this.todoRepository.save(todo);
+  }
+
+  // Удалить тудушку только если она принадлежит пользователю
+  async deleteForUser(id: string, userId: string) {
+    const todo = await this.findByIdForUser(id, userId);
+    await this.todoRepository.delete(todo.id);
   }
 }
