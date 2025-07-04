@@ -8,62 +8,58 @@ import {
   Query,
   Patch,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { TodoService } from './todo.service';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { TodoFiltersDto } from './dto/todo-filters.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Request as ExpressRequest } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-
-interface AuthRequest extends ExpressRequest {
-  user: {
-    id: string;
-    email: string;
-    password: string;
-    name: string;
-  };
-}
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
 
 @ApiTags('todo')
-@ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+@UseGuards(JwtAccessGuard)
 @Controller('todo')
 export class TodoController {
   constructor(private readonly todoService: TodoService) {}
 
   @Get()
-  findAll(@Request() req: AuthRequest, @Query() filters: TodoFiltersDto) {
-    return this.todoService.findAllByUser(req.user.id, filters);
+  findAll(
+    @CurrentUser('userId') userId: string,
+    @Query() filters: TodoFiltersDto,
+  ) {
+    return this.todoService.findAllByUser(filters, userId);
   }
 
   @Post()
   async create(
-    @Request() req: AuthRequest,
+    @CurrentUser('userId') userId: string,
     @Body() createTodoDto: CreateTodoDto,
   ) {
-    return this.todoService.create(req.user.id, createTodoDto);
+    return this.todoService.create(userId, createTodoDto);
   }
 
   @Get(':id')
-  async findOne(@Request() req: AuthRequest, @Param('id') id: string) {
-    return this.todoService.findByIdForUser(id, req.user.id);
+  async findOne(
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.todoService.findByIdForUser(id, userId);
   }
 
   @Patch(':id')
   async update(
-    @Request() req: AuthRequest,
+    @CurrentUser('userId') userId: string,
     @Param('id') id: string,
     @Body() updateTodoDto: UpdateTodoDto,
   ) {
-    return this.todoService.updateForUser(id, req.user.id, updateTodoDto);
+    return this.todoService.updateForUser(id, userId, updateTodoDto);
   }
 
   @Delete(':id')
-  async remove(@Request() req: AuthRequest, @Param('id') id: string) {
-    await this.todoService.deleteForUser(id, req.user.id);
+  async remove(@CurrentUser('userId') userId: string, @Param('id') id: string) {
+    await this.todoService.deleteForUser(id, userId);
     return { message: 'Успешно удален' };
   }
 }
