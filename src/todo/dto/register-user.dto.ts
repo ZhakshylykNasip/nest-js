@@ -2,23 +2,32 @@ import { ApiProperty } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
-export const registerSchema = z.object({
-  name: z.string().min(1).describe('Имя пользователя'),
-  email: z.string().email().describe('Email'),
-  password: z.string().min(4).describe('Пароль (мин. 4 символа)'),
-});
+export const registerSchema = z
+  .object({
+    name: z.string().min(1).describe('Имя пользователя'),
+    email: z.string().email().describe('Email'),
+    password: z.string().min(4).describe('Пароль (мин. 4 символа)'),
+    passwordConfirm: z.string(),
+  })
+  .refine((val) => val.password === val.passwordConfirm, {
+    path: ['passwordConfirm'],
+    message: 'Пароли не совпадают',
+  });
 
 export class RegisterUserDto extends createZodDto(registerSchema) {
   static schema = registerSchema;
 
   @ApiProperty({ example: 'Жакшылык' })
-  name: string;
+  name!: string;
 
   @ApiProperty({ example: 'test@example.com' })
-  email: string;
+  email!: string;
 
   @ApiProperty({ example: 'qwerty123' })
-  password: string;
+  password!: string;
+
+  @ApiProperty({ example: 'qwerty123' })
+  passwordConfirm!: string;
 }
 
 export const signInSchema = z.object({
@@ -30,8 +39,8 @@ export class SignInDto extends createZodDto(signInSchema) {
   static schema = signInSchema;
 
   @ApiProperty({ example: 'user@example.com' })
-  email: string;
+  email!: string;
 
   @ApiProperty({ example: 'qwerty123' })
-  password: string;
+  password!: string;
 }

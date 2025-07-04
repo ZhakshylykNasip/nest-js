@@ -14,7 +14,7 @@ export class TodoService {
   ) {}
 
   // Получить все тудушки пользователя с фильтрами
-  async findAllByUser(userId: string, filters: TodoFiltersDto) {
+  async findAllByUser(filters: TodoFiltersDto, userId?: string) {
     return this.todoRepository.find({
       where: {
         userId,

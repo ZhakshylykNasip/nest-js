@@ -11,7 +11,7 @@ export class CreateTodoDto extends createZodDto(createTodoSchema) {
   static schema = createTodoSchema;
 
   @ApiProperty({ example: 'string', description: 'Заголовок задачи' })
-  title: string;
+  title!: string;
   @ApiPropertyOptional()
-  isCompleted: boolean;
+  isCompleted!: boolean;
 }

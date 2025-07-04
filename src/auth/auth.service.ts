@@ -2,13 +2,17 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '../todo/entities/user.entity';
+import { User } from './entities/user.entity';
 import { RegisterUserDto } from '../todo/dto/register-user.dto';
+import { JwtPayload } from './interfaces/jwt-payload';
+import { jwtConfig } from 'src/config/jwt.config';
+import { IJwtConfig } from 'src/config/interfaces/jwt-config.interface';
+import { Tokens } from './value-objects/tokens.vo';
 
 @Injectable()
 export class AuthService {
@@ -16,54 +20,67 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    @Inject(jwtConfig.KEY)
+    private readonly jwtConfig: IJwtConfig,
   ) {}
 
-  async create(data: RegisterUserDto): Promise<{
-    access_token: string;
-    user: Pick<User, 'id' | 'name' | 'email'>;
-  }> {
+  async register(data: RegisterUserDto): Promise<User> {
     const exist = await this.userRepository.findOneBy({ email: data.email });
     if (exist) {
       throw new ConflictException('Пользователь с таким email уже существует');
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 12);
+    const user = this.userRepository.create(data);
 
-    const user = this.userRepository.create({
-      ...data,
-      password: hashedPassword,
-    });
+    await user.setPassword(data.password);
+
     const savedUser = await this.userRepository.save(user);
 
-    const payload = { sub: savedUser.id, email: savedUser.email };
-    const access_token = this.jwtService.sign(payload);
-
-    return {
-      access_token,
-      user: {
-        id: savedUser.id,
-        name: savedUser.name,
-        email: savedUser.email,
-      },
-    };
+    return savedUser;
   }
 
-  async signIn(
-    email: string,
-    password: string,
-  ): Promise<{ access_token: string }> {
+  async signIn(email: string, password: string): Promise<Tokens> {
     const user = await this.userRepository.findOneBy({ email });
     if (!user) {
-      throw new UnauthorizedException('Пользователь не найден');
+      throw new UnauthorizedException('Неверный пароль или email');
     }
+    const isPasswordMatching = await user.comparePassword(password);
 
-    const isPasswordMatching = await bcrypt.compare(password, user.password);
     if (!isPasswordMatching) {
-      throw new UnauthorizedException('Неверный пароль');
+      throw new UnauthorizedException('Неверный пароль или email');
     }
 
-    const payload = { sub: user.id, email: user.email };
-    const access_token = this.jwtService.sign(payload);
-    return { access_token };
+    const tokens = await this.createTokens(user);
+    return tokens;
+  }
+
+  async refreshTokens(user: User, refreshToken: string) {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+    };
+    const accessToken = await this.jwtService.signAsync(payload, {
+      secret: this.jwtConfig.accessSecret,
+      expiresIn: this.jwtConfig.accessLifetime,
+    });
+
+    return new Tokens({ accessToken, refreshToken });
+  }
+
+  async createTokens(user: User): Promise<Tokens> {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+    };
+    const accessToken = await this.jwtService.signAsync(payload, {
+      secret: this.jwtConfig.accessSecret,
+      expiresIn: this.jwtConfig.accessLifetime,
+    });
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      secret: this.jwtConfig.refreshSecret,
+      expiresIn: this.jwtConfig.refreshLifetime,
+    });
+
+    return new Tokens({ accessToken, refreshToken });
   }
 }

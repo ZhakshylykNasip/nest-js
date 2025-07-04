@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryColumn, ManyToOne } from 'typeorm';
 import { createId } from '@paralleldrive/cuid2';
 import { z } from 'zod';
-import { User } from './user.entity';
+import { User } from '../../auth/entities/user.entity';
 
 const todoEntityPropsSchema = z.object({
   id: z.string().default(() => createId()),
@@ -17,19 +17,19 @@ const updateTodoEntityPropsSchema = todoEntityPropsSchema
 @Entity()
 export class Todo {
   @PrimaryColumn()
-  readonly id: string;
+  readonly id!: string;
 
   @Column()
-  title: string;
+  title!: string;
 
   @Column({ default: false })
-  isCompleted: boolean;
+  isCompleted!: boolean;
 
   @Column({ nullable: true })
-  userId: string;
+  userId!: string;
 
   @ManyToOne(() => User, (user) => user.todos)
-  user: User;
+  user!: User;
 
   constructor(props?: z.input<typeof todoEntityPropsSchema>) {
     if (props) {
